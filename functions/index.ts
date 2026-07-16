@@ -1,26 +1,4 @@
-// functions/index.ts — Biblioteca Web backend entrypoint
-//
-// Cloudflare Worker que delega todas as operações de banco para um Durable
-// Object chamado LibraryStore. O DO mantém o estado em SQLite (this.ctx.storage.sql)
-// implementando o mesmo schema relacional descrito em `schema_postgres.sql`.
-//
-// Endpoints (14 casos de uso):
-//  GET    /api/autores              — listar autores
-//  POST   /api/autores              — cadastrar autor
-//  GET    /api/categorias           — listar categorias
-//  POST   /api/categorias           — cadastrar categoria
-//  GET    /api/livros               — listar livros (com autor e categoria)
-//  POST   /api/livros               — cadastrar livro
-//  GET    /api/livros/:id           — detalhar livro
-//  GET    /api/membros              — listar membros
-//  POST   /api/membros              — cadastrar membro
-//  GET    /api/emprestimos          — listar empréstimos (com joins)
-//  POST   /api/emprestimos          — registrar empréstimo
-//  PATCH  /api/emprestimos/:id/devolver — devolver livro
-//  GET    /api/emprestimos/ativos   — empréstimos em aberto
-//  GET    /api/dashboard            — estatísticas (counts e relatórios)
 
-// Re-export do DO para o bundler não remover a classe (tree-shaking).
 import express from 'express';
 import cors from 'cors';
 import { Pool } from 'pg';
@@ -32,7 +10,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Configuração da conexão com o PostgreSQL
+// Configuração da conexão com o banco 
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'postgres',
@@ -41,7 +19,7 @@ const pool = new Pool({
   port: Number(process.env.DB_PORT) || 5432,
 });
 
-// ===== Autores =====
+//  Autores 
 app.get('/api/autores', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM autores ORDER BY nome');
@@ -65,7 +43,7 @@ app.post('/api/autores', async (req, res) => {
   }
 });
 
-// ===== Categorias =====
+//  Categorias 
 app.get('/api/categorias', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM categorias ORDER BY nome');
@@ -89,7 +67,7 @@ app.post('/api/categorias', async (req, res) => {
   }
 });
 
-// ===== Livros =====
+//  Livros 
 app.get('/api/livros', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -121,7 +99,7 @@ app.post('/api/livros', async (req, res) => {
   }
 });
 
-// ===== Membros =====
+//  Membros 
 app.get('/api/membros', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM membros ORDER BY nome');
@@ -146,7 +124,7 @@ app.post('/api/membros', async (req, res) => {
   }
 });
 
-// ===== Empréstimos =====
+//  Empréstimos 
 app.get('/api/emprestimos', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -211,7 +189,7 @@ app.patch('/api/emprestimos/:id/devolver', async (req, res) => {
   }
 });
 
-// ===== Dashboard =====
+//  Dashboard 
 app.get('/api/dashboard', async (req, res) => {
   try {
     const totalLivros = await pool.query('SELECT COUNT(*)::int as count FROM livros');
@@ -237,5 +215,5 @@ app.get('/api/dashboard', async (req, res) => {
 // Inicialização do servidor local
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor backend PostgreSQL completo rodando em http://localhost:${PORT}`);
+  console.log(` Servidor backend PostgreSQL completo rodando em http://localhost:${PORT}`);
 });
