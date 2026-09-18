@@ -1,4 +1,10 @@
-
+CREATE TABLE IF NOT EXISTS usuarios (
+    id            SERIAL PRIMARY KEY,
+    nome          VARCHAR(150) NOT NULL,
+    email         VARCHAR(150) NOT NULL UNIQUE,
+    senha_hash    VARCHAR(255) NOT NULL,
+    data_cadastro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 CREATE TABLE IF NOT EXISTS autores (
     id              SERIAL PRIMARY KEY,
     nome            VARCHAR(150) NOT NULL,

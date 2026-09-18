@@ -3,7 +3,9 @@ import {
   View, Text, FlatList, TouchableOpacity, Modal, TextInput,
   StyleSheet, RefreshControl, ActivityIndicator, Alert, ScrollView,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { api } from "../services/api";
+import { isLoggedIn, logout } from "../services/auth";
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   aberto: { bg: "#EAF3FF", color: "#0984E3", label: "Aberto" },
@@ -12,6 +14,9 @@ const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }>
 };
 
 export default function Emprestimos() {
+  const router = useRouter();
+
+  const [checandoAuth, setChecandoAuth] = useState(true);
   const [emprestimos, setEmprestimos] = useState<any[]>([]);
   const [membros, setMembros] = useState<any[]>([]);
   const [livros, setLivros] = useState<any[]>([]);
@@ -31,8 +36,15 @@ export default function Emprestimos() {
   }, []);
 
   useEffect(() => {
-    load().finally(() => setLoading(false));
-  }, [load]);
+    isLoggedIn().then((logado) => {
+      if (!logado) {
+        router.replace("/login" as never);
+      } else {
+        setChecandoAuth(false);
+        load().finally(() => setLoading(false));
+      }
+    });
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -70,7 +82,12 @@ export default function Emprestimos() {
     }
   };
 
-  if (loading) {
+  const sair = async () => {
+    await logout();
+    router.replace("/login" as never);
+  };
+
+  if (checandoAuth || loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#6C5CE7" />
@@ -80,7 +97,12 @@ export default function Emprestimos() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Empréstimos</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Empréstimos</Text>
+        <TouchableOpacity onPress={sair}>
+          <Text style={styles.sairText}>Sair</Text>
+        </TouchableOpacity>
+      </View>
 
       <FlatList
         data={emprestimos}
@@ -177,7 +199,9 @@ export default function Emprestimos() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: "#F7F7FB" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F7F7FB" },
-  title: { fontSize: 26, fontWeight: "800", marginBottom: 16, color: "#1A1A2E" },
+  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  title: { fontSize: 26, fontWeight: "800", color: "#1A1A2E" },
+  sairText: { color: "#E17055", fontWeight: "700" },
   empty: { textAlign: "center", color: "#999", marginTop: 40 },
   card: {
     flexDirection: "row", alignItems: "center", backgroundColor: "#fff",

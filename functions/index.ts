@@ -1,14 +1,17 @@
-
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import express from 'express';
 import cors from 'cors';
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
+
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+const JWT_SECRET = process.env.JWT_SECRET || '1234';
 
 // Configuração da conexão com o banco 
 const pool = new Pool({
@@ -18,6 +21,58 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'biblioteca',
   port: Number(process.env.DB_PORT) || 5432,
 });
+//  Autenticação 
+app.post('/api/auth/registrar', async (req, res) => {
+  const { nome, email, senha } = req.body;
+  if (!nome || !email || !senha) {
+    return res.status(400).json({ error: 'nome, email e senha são obrigatórios' });
+  }
+  try {
+    const senha_hash = await bcrypt.hash(senha, 10);
+    const result = await pool.query(
+      'INSERT INTO usuarios (nome, email, senha_hash) VALUES ($1, $2, $3) RETURNING id, nome, email',
+      [nome, email, senha_hash]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err: any) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Email já cadastrado' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  const { email, senha } = req.body;
+  if (!email || !senha) {
+    return res.status(400).json({ error: 'email e senha são obrigatórios' });
+  }
+  try {
+    const result = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
+    const usuario = result.rows[0];
+    if (!usuario) return res.status(401).json({ error: 'Email ou senha inválidos' });
+
+    const senhaCorreta = await bcrypt.compare(senha, usuario.senha_hash);
+    if (!senhaCorreta) return res.status(401).json({ error: 'Email ou senha inválidos' });
+
+    const token = jwt.sign({ id: usuario.id, email: usuario.email }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email } });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+function autenticar(req: any, res: any, next: any) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Token não fornecido' });
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    req.usuario = payload;
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Token inválido ou expirado' });
+  }
+}
+
+
 
 //  Autores 
 app.get('/api/autores', async (req, res) => {
@@ -140,7 +195,7 @@ app.get('/api/emprestimos', async (req, res) => {
   }
 });
 
-app.get('/api/emprestimos/ativos', async (req, res) => {
+app.get('/api/emprestimos/ativos',autenticar, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT e.*, m.nome as membro_nome, l.titulo as livro_titulo
@@ -156,7 +211,7 @@ app.get('/api/emprestimos/ativos', async (req, res) => {
   }
 });
 
-app.post('/api/emprestimos', async (req, res) => {
+app.post('/api/emprestimos', autenticar, async (req, res) => {
   const { membro_id, livro_id, dias } = req.body;
   if (!membro_id || !livro_id) return res.status(400).json({ error: 'membro_id e livro_id são obrigatórios' });
   
@@ -175,7 +230,7 @@ app.post('/api/emprestimos', async (req, res) => {
   }
 });
 
-app.patch('/api/emprestimos/:id/devolver', async (req, res) => {
+app.patch('/api/emprestimos/:id/devolver',autenticar, async (req, res) => {
   const { id } = req.params;
   try {
     const result = await pool.query(
